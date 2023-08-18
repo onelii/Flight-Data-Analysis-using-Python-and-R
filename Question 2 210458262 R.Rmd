@@ -1,0 +1,332 @@
+---
+title: "Question 02"
+author: "Oneli (210458262)"
+date: "2023-03-28"
+output: html_document
+---
+
+```{r}
+#Question 2
+mergeddataset <- read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/2006and2007mergeddatasetr.csv")
+datasetplanedata <- read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/plane-data.csv")
+```
+
+
+```{r}
+#left merging plane data set to merged data set of 2006 and 2007 years
+#renaming the column "tailnum" to "TailNum" to make a left merge
+library(dplyr)
+datasetplanedata <- datasetplanedata %>% rename(TailNum = tailnum)
+colnames(datasetplanedata)
+mergedwithplanedata <- left_join(mergeddataset, datasetplanedata, by = "TailNum")
+#renaming the column "year" to "YearOfManufacture"
+mergedwithplanedata <- mergedwithplanedata %>% rename(YearOfManufacture = year)
+str(datasetplanedata)
+head(mergedwithplanedata)
+
+```
+
+```{r}
+write.csv(mergedwithplanedata, file = "C:/Users/DELL/Desktop/Coursework/coursework data set/mergedwithplanedatar.csv", row.names = FALSE)
+
+```
+
+```{r}
+#Cleaning data for question 2 
+#extracting the desired columns for question 2
+q2dataset <- mergedwithplanedata[, c("TailNum", "Year", "YearOfManufacture", "ArrDelay", "DepDelay", "CarrierDelay", "WeatherDelay", "NASDelay", "SecurityDelay", "LateAircraftDelay")]
+head(q2dataset)
+#checking null values
+colSums(is.na(q2dataset))
+# Make "None" as a null value in the year column
+q2dataset$q2dataset$YearOfManufacture[q2dataset$YearOfManufacture == "None"] <- NA
+# making rows with '0000' values in "year of manufacture" column null values
+q2dataset$q2dataset$YearOfManufacture[q2dataset$YearOfManufacture == "0000"] <- NA
+#rechecking null values
+colSums(is.na(q2dataset))
+#creating seperate data sets for arrival delay and departure delay
+q2arrdataset<-q2dataset[,c("TailNum","Year","YearOfManufacture","ArrDelay")]
+head(q2arrdataset)
+q2depdataset<-q2dataset[,c("TailNum","Year","YearOfManufacture","DepDelay")]
+head(q2depdataset)
+#dropping null values
+q2arrdataset <- na.omit(q2arrdataset)
+q2depdataset <- na.omit(q2depdataset)
+#rechecking null values
+colSums(is.na(q2arrdataset))
+colSums(is.na(q2depdataset))
+#removing early arrivals and early departures
+q2arrdataset <- q2arrdataset[q2arrdataset$ArrDelay >= 0, ]
+q2depdataset <- q2depdataset[q2depdataset$DepDelay >= 0, ]
+#creating data set with Year Of Manufacture and type of delays
+q2delaytypesdataset<-q2dataset[,c("TailNum","Year","YearOfManufacture","CarrierDelay","WeatherDelay","NASDelay","SecurityDelay","LateAircraftDelay")]
+head(q2delaytypesdataset)
+#dropping null values
+q2delaytypesdataset <- na.omit(q2delaytypesdataset)
+#rechecking for null values
+colSums(is.na(q2delaytypesdataset))
+# change the data type of year of manufacture column from object to integer
+q2arrdataset$YearOfManufacture <- as.integer(q2arrdataset$YearOfManufacture)
+q2depdataset$YearOfManufacture <- as.integer(q2depdataset$YearOfManufacture)
+q2delaytypesdataset$YearOfManufacture <- as.integer(q2delaytypesdataset$YearOfManufacture)
+#calculate plane age
+q2arrdataset$PlaneAge <- q2arrdataset$Year - q2arrdataset$YearOfManufacture
+q2depdataset$PlaneAge <- q2depdataset$Year - q2depdataset$YearOfManufacture
+q2delaytypesdataset$PlaneAge <- q2delaytypesdataset$Year - q2delaytypesdataset$YearOfManufacture
+#making plane age = -1 and more than 52 a null value
+q2arrdataset$PlaneAge[q2arrdataset$PlaneAge == -1] <- NA
+q2arrdataset$PlaneAge[q2arrdataset$PlaneAge >52] <- NA
+q2depdataset$PlaneAge[q2depdataset$PlaneAge == -1] <- NA
+q2depdataset$PlaneAge[q2depdataset$PlaneAge >52] <- NA
+q2delaytypesdataset$PlaneAge[q2delaytypesdataset$PlaneAge == -1] <- NA
+q2delaytypesdataset$PlaneAge[q2delaytypesdataset$PlaneAge >52] <- NA
+#checking for null values
+colSums(is.na(q2arrdataset))
+colSums(is.na(q2depdataset))
+colSums(is.na(q2delaytypesdataset))
+#dropping null values
+q2arrdataset <- na.omit(q2arrdataset)
+q2depdataset <- na.omit(q2depdataset)
+q2delaytypesdataset <- na.omit(q2delaytypesdataset)
+#rechecking for null values
+colSums(is.na(q2arrdataset))
+colSums(is.na(q2depdataset))
+colSums(is.na(q2delaytypesdataset))
+```
+
+```{r}
+#Creating a scatter plot to show the relationship between plane age and mean arrival delay
+library(ggplot2)
+
+# Calculate the mean arrival delay for each plane age
+mean_arrival_delay <- aggregate(ArrDelay ~ PlaneAge, q2arrdataset, mean)
+#scatter plot
+ggplot(mean_arrival_delay, aes(x = PlaneAge, y = ArrDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + # Add a regression line
+  labs(x = "Plane Age", y = "Mean Arrival Delay", title = "Relationship between Plane Age and Mean Arrival Delay")
+
+```
+```{r}
+#correlation for plane age and mean arrival delay
+cor(mean_arrival_delay$PlaneAge, mean_arrival_delay$ArrDelay)
+
+```
+
+```{r}
+#Creating a scatter plot to show the relationship between plane age and mean departure delay
+library(ggplot2)
+
+# Calculate the mean arrival delay for each plane age
+mean_departure_delay <- aggregate(DepDelay ~ PlaneAge, q2depdataset, mean)
+#scatter plot
+ggplot(mean_departure_delay, aes(x = PlaneAge, y = DepDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + # Add a regression line
+  labs(x = "Plane Age", y = "Mean Arrival Delay", title = "Relationship between Plane Age and Mean Departure Delay")
+
+
+```
+
+
+```{r}
+#correlation for plane age and mean departure delay
+cor(mean_arrival_delay$PlaneAge, mean_departure_delay$DepDelay)
+```
+
+
+```{r}
+#Creating Line Graph to show the trend in departure and arrival mean delays over age of plane
+library(ggplot2)
+# Combine the mean arrival delay and mean departure delay data frames
+mean_delaydfq2 <- merge(mean_arrival_delay, mean_departure_delay, by = "PlaneAge")
+
+# Create a line graph showing the mean arrival delay and mean departure delay for each plane age
+ggplot(mean_delaydfq2, aes(x = PlaneAge)) +
+  geom_line(aes(y = ArrDelay, color = "Mean Arrival Delay")) +
+  geom_line(aes(y = DepDelay, color = "Mean Departure Delay")) +
+  labs(x = "Plane Age", y = "Mean Delay (Minutes)", color = "Delay Type", title = "Relationship between Plane Age and Mean Delay") +
+  scale_color_manual(values = c("Mean Arrival Delay" = "red", "Mean Departure Delay" = "blue")) # Set the colors for the lines
+
+
+```
+
+```{r}
+#Using delay types to see whether older planes suffer more delays
+#removing delays with 0 as when calculating mean it will affect the value
+#array for each delay type
+q2carrierdelays<-q2delaytypesdataset[,c("CarrierDelay","PlaneAge")]
+head(q2carrierdelays)
+q2weatherdelays<-q2delaytypesdataset[,c("WeatherDelay","PlaneAge")]
+head(q2weatherdelays)
+q2NASdelays<-q2delaytypesdataset[,c("NASDelay","PlaneAge")]
+head(q2NASdelays)
+q2securitydelays<-q2delaytypesdataset[,c("SecurityDelay","PlaneAge")]
+head(q2securitydelays)
+q2lateaircraftdelays<-q2delaytypesdataset[,c("LateAircraftDelay","PlaneAge")]
+head(q2lateaircraftdelays)
+#making delays less than 1 null value
+q2carrierdelays$CarrierDelay <- ifelse(q2carrierdelays$CarrierDelay < 1, NA, q2carrierdelays$CarrierDelay)
+q2weatherdelays$WeatherDelay <- ifelse(q2weatherdelays$WeatherDelay < 1, NA, q2weatherdelays$WeatherDelay)
+q2NASdelays$NASDelay <- ifelse(q2NASdelays$NASDelay < 1, NA, q2NASdelays$NASDelay)
+q2securitydelays$SecurityDelay <- ifelse(q2securitydelays$SecurityDelay < 1, NA, q2securitydelays$SecurityDelay)
+q2lateaircraftdelays$LateAircraftDelay <- ifelse(q2lateaircraftdelays$LateAircraftDelay < 1, NA, q2lateaircraftdelays$LateAircraftDelay)
+#dropping null values
+q2carrierdelays <- na.omit(q2carrierdelays)
+q2weatherdelays <- na.omit(q2weatherdelays)
+q2NASdelays <- na.omit(q2NASdelays)
+q2securitydelays <- na.omit(q2securitydelays)
+q2lateaircraftdelays <- na.omit(q2lateaircraftdelays)
+#rechecking null values
+colSums(is.na(q2carrierdelays))
+colSums(is.na(q2weatherdelays))
+colSums(is.na(q2NASdelays))
+colSums(is.na(q2securitydelays))
+colSums(is.na(q2lateaircraftdelays))
+```
+
+```{r}
+#creating boxplot to see its distribution
+carrier_delay<- q2carrierdelays$CarrierDelay
+weather_delay <- q2weatherdelays$WeatherDelay
+NAS_delay <- q2NASdelays$NASDelay
+security_delay <- q2securitydelays$SecurityDelay
+lateaircraft_delay <- q2lateaircraftdelays$LateAircraftDelay
+
+boxplot(list(carrier_delay,weather_delay,NAS_delay,security_delay,lateaircraft_delay),
+        vertical = TRUE,
+        names = c("Carrier Delay", "Weather Delay","NAS Delay","Security Delay","Late Aircraft Delay"), 
+        ylab = "Delay Time (minutes)", 
+        ylim = c(0, 120), 
+        show.names = FALSE, 
+        outline = FALSE, 
+        col = c("White", "White","White","White","White") 
+        )
+axis(side = 1, at = c(1,2,3,4,5), labels = c("Carrier Delay", "Weather Delay","NAS Delay","Security Delay","Late Aircraft Delay"), pos = 0, tick = FALSE, cex.axis = 0.8)
+
+```
+
+```{r}
+#calculating mean for each delay type for each plane age
+planeage_avgcarrierdelay <- q2carrierdelays %>% 
+  group_by(PlaneAge) %>% 
+  summarise(CarrierDelay = mean(CarrierDelay)) %>% 
+  ungroup()
+planeage_avgweatherdelay <- q2weatherdelays %>% 
+  group_by(PlaneAge) %>% 
+  summarise(WeatherDelay = mean(WeatherDelay)) %>% 
+  ungroup()
+planeage_avgNASdelay <- q2NASdelays %>% 
+  group_by(PlaneAge) %>% 
+  summarise(NASDelay = mean(NASDelay)) %>% 
+  ungroup()
+planeage_avgsecuritydelay <- q2securitydelays %>% 
+  group_by(PlaneAge) %>% 
+  summarise(SecurityDelay = mean(SecurityDelay)) %>% 
+  ungroup()
+planeage_avglateaircraftdelay <- q2lateaircraftdelays %>% 
+  group_by(PlaneAge) %>% 
+  summarise(LateAircraftDelay = mean(LateAircraftDelay)) %>% 
+  ungroup()
+
+#merging the mean for each delay types
+mergeddelaytypes <- merge(planeage_avgcarrierdelay, planeage_avgweatherdelay, by = "PlaneAge")
+mergeddelaytypes <- merge(mergeddelaytypes, planeage_avgNASdelay, by = "PlaneAge")
+mergeddelaytypes <- merge(mergeddelaytypes, planeage_avgsecuritydelay, by = "PlaneAge")
+mergeddelaytypes <- merge(mergeddelaytypes, planeage_avglateaircraftdelay, by = "PlaneAge")
+
+mergeddelaytypes
+
+```
+
+```{r}
+#creating scatter plots to see relationship with delay types and plane age
+library(ggplot2)
+library(cowplot)
+
+theme_set(theme_bw())
+
+grid <- expand.grid(rows = 1:2, cols = 1:3)
+
+# Carrier Delay 
+p1 <- ggplot(mergeddelaytypes, aes(x = PlaneAge, y = CarrierDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Plane Age", y = "Mean Carrier Delay (minutes)", 
+       title = "Relationship Between Plane Age and Mean Carrier Delay") +
+  theme(plot.title = element_text(hjust = 0.5, size = 5),
+        axis.text = element_text(size = 4),
+        axis.title= element_text(size=5))
+
+# Weather Delay 
+p2 <- ggplot(mergeddelaytypes, aes(x = PlaneAge, y = WeatherDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Plane Age", y = "Mean Weather Delay (minutes)", 
+       title = "Relationship Between Plane Age and Mean Weather Delay") +
+  theme(plot.title = element_text(hjust = 0.5, size = 5),
+        axis.text = element_text(size = 4),
+        axis.title= element_text(size=5))
+
+# NAS Delay 
+p3 <- ggplot(mergeddelaytypes, aes(x = PlaneAge, y = NASDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Plane Age", y = "Mean NAS Delay (minutes)", 
+       title = "Relationship Between Plane Age and Mean NAS Delay") +
+  theme(plot.title = element_text(hjust = 0.5, size = 5),
+        axis.text = element_text(size = 4),
+        axis.title= element_text(size=5))
+
+# Security Delay 
+p4 <- ggplot(mergeddelaytypes, aes(x = PlaneAge, y = SecurityDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Plane Age", y = "Mean Security Delay (minutes)", 
+       title = "Relationship Between Plane Age and Mean Security Delay") +
+  theme(plot.title = element_text(hjust = 0.5, size = 5),
+        axis.text = element_text(size = 4),
+        axis.title= element_text(size=5))
+
+# Late Aircraft Delay 
+p5 <- ggplot(mergeddelaytypes, aes(x = PlaneAge, y = LateAircraftDelay)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Plane Age", y = "Mean Late Aircraft Delay (minutes)", 
+       title = "Relationship Between Plane Age and Mean Late Aircraft Delay") +
+  theme(plot.title = element_text(hjust = 0.5, size = 5),
+        axis.text = element_text(size = 4),
+        axis.title= element_text(size=5))
+
+
+plot_grid(p1, p2, p3, p4, p5, nrow = 2, ncol = 3)
+
+plot_title <- ggdraw() + draw_label("Relationship Between Plane Age and Mean Delay Types", fontface = "bold", size = 6)
+plot_grid(plot_title, plot_grid(p1, p2, p3, p4, p5, nrow = 2, ncol = 3), rel_heights = c(0.1, 1))
+
+```
+
+
+```{r}
+#correlation between delay types
+corr_carrier_delay <- cor(mergeddelaytypes$CarrierDelay, mergeddelaytypes$PlaneAge, method = "pearson")
+corr_weather_delay <- cor(mergeddelaytypes$WeatherDelay, mergeddelaytypes$PlaneAge, method = "pearson")
+corr_nas_delay <- cor(mergeddelaytypes$NASDelay, mergeddelaytypes$PlaneAge, method = "pearson")
+corr_security_delay <- cor(mergeddelaytypes$SecurityDelay, mergeddelaytypes$PlaneAge, method = "pearson")
+corr_late_aircraft_delay <- cor(mergeddelaytypes$LateAircraftDelay, mergeddelaytypes$PlaneAge, method = "pearson")
+
+print(paste0("Carrier Delay and Plane Age correlation: ", corr_carrier_delay))
+print(paste0("Weather Delay and Plane Age correlation: ", corr_weather_delay))
+print(paste0("NAS Delay and Plane Age correlation: ", corr_nas_delay))
+print(paste0("Security Delay and Plane Age correlation: ", corr_security_delay))
+print(paste0("Late Aircraft Delay and Plane Age correlation: ", corr_late_aircraft_delay))
+
+```
+
+
+
+
+
+
+
+

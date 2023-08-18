@@ -1,0 +1,337 @@
+---
+title: "Question 5"
+author: "Oneli (210458262)"
+date: "2023-04-01"
+output: html_document
+---
+```{r}
+#uploading merged with plane data set which was already done in question 2
+mergedwithplanedata<-read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/mergedwithplanedatar.csv")
+head(mergedwithplanedata)
+```
+
+```{r}
+#checking null values
+colSums(is.na(mergedwithplanedata))
+#dropping columns
+# Drop multiple columns from a data frame
+library(dplyr)
+q5data <- select(mergedwithplanedata, -c(CancellationCode, type, manufacturer, issue_date, model, status, aircraft_type, engine_type))
+# Make "None" as a null value in the year column
+q5data$YearOfManufacture[q5data$YearOfManufacture == "None"] <- NA
+# making rows with '0000' values in "year of manufacture" column null values
+q5data$YearOfManufacture[q5data$YearOfManufacture == "0000"] <- NA
+#checking null values
+colSums(is.na(q5data))
+#dropping null values
+q5data <- na.omit(q5data)
+#rechecking null values
+colSums(is.na(q5data))
+# change the data type of year of manufacture column from object to integer
+q5data$YearOfManufacture <- as.integer(q5data$YearOfManufacture)
+#calculate plane age
+q5data$PlaneAge <- q5data$Year - q5data$YearOfManufacture
+#making plane age = -1 and more than 52 a null value
+q5data$PlaneAge[q5data$PlaneAge == -1] <- NA
+q5data$PlaneAge[q5data$PlaneAge >52] <- NA
+#checking null values
+colSums(is.na(q5data))
+#dropping null values
+q5data <- na.omit(q5data)
+#rechecking null values
+colSums(is.na(q5data))
+
+```
+
+
+```{r}
+#dropping columns
+q5data <- select(q5data, -c(Cancelled,Diverted,YearOfManufacture,UniqueCarrier,TailNum,Origin,Dest))
+head(q5data)
+```
+
+
+```{r}
+#correlation plot
+# Load required packages
+library(reshape2)
+library(dplyr)
+library(ggplot2)
+
+matrix <- round(cor(q5data),2)
+melted_cormat <- melt(matrix)
+head(melted_cormat)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + 
+geom_text(aes(Var1, Var2, label = value), color = "black", size = 4)+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggsave("correlation_plot.png", width = 20, height = 20, dpi = 300)
+
+```
+
+
+```{r}
+#Cleaning Data For Modelling on Arrival Delays
+#Extracting the desired columns
+q5arrdataset <- mergedwithplanedata[, c("Year","Month","DayOfWeek","DepDelay","ArrDelay","Distance","YearOfManufacture")]
+head(q5arrdataset)
+```
+
+```{r}
+#checking for null values
+colSums(is.na(q5arrdataset))
+# making rows with '0000' values and 'None' in year of manufacture column null values
+q5arrdataset$YearOfManufacture[q5arrdataset$YearOfManufacture == "None"] <- NA
+q5arrdataset$YearOfManufacture[q5arrdataset$YearOfManufacture == "0000"] <- NA
+#checking for null values and dropping
+colSums(is.na(q5arrdataset))
+q5arrdataset <- na.omit(q5arrdataset)
+colSums(is.na(q5arrdataset))
+
+# change the data type of year of manufacture column from object to integer
+q5arrdataset$YearOfManufacture <- as.integer(q5arrdataset$YearOfManufacture)
+#calculate plane age
+q5arrdataset$PlaneAge <- q5arrdataset$Year - q5arrdataset$YearOfManufacture
+#making plane age = -1 and more than 52 a null value
+q5arrdataset$PlaneAge[q5arrdataset$PlaneAge == -1] <- NA
+q5arrdataset$PlaneAge[q5arrdataset$PlaneAge >52] <- NA
+#checking for null values and dropping
+colSums(is.na(q5arrdataset))
+q5arrdataset <- na.omit(q5arrdataset)
+colSums(is.na(q5arrdataset))
+#dropping columns
+q5arrdataset <- select(q5arrdataset, -c(Year,YearOfManufacture))
+head(q5arrdataset)
+#adding delay status column
+q5arrdataset$DelayStatus <- ifelse(q5arrdataset$ArrDelay > 0, 1, 0)
+head(q5arrdataset)
+
+
+```
+
+
+```{r}
+#Supervised Classification
+#dropping ArrDelay Column as we are modelling for it
+library(dplyr)
+q5classif <- select(q5arrdataset, -c(ArrDelay))
+dim(q5classif)
+#checking if Delay Status is balanced
+# Count of 0
+sum(q5classif$DelayStatus == 0)
+# Count of 1
+sum(q5classif$DelayStatus == 1)
+#standardising the variables except for categorical data
+library(dplyr)
+q5num <- q5classif
+num_cols <- c("DepDelay", "Distance", "PlaneAge")
+q5num[num_cols] <- scale(q5classif[num_cols])
+head(q5num)
+
+```
+
+```{r}
+#Indicator function for categorical variables using one hot encoding
+library(caret)
+cat_cols <- c("Month", "DayOfWeek")
+q5classif[, cat_cols] <- lapply(q5classif[, cat_cols], factor)
+q5categorical <- q5classif[, cat_cols]
+formula <- as.formula(paste0("~", paste(cat_cols, collapse = "+")))
+one_hot_encoder <- dummyVars(formula, data = q5categorical)
+q5categorical <- as.data.frame(predict(one_hot_encoder, newdata = q5categorical))
+colnames(q5categorical) <- gsub("\\.", "+", colnames(q5categorical))
+rownames(q5categorical) <- rownames(q5num)
+head(q5categorical)
+
+```
+```{r}
+#merging numerical and categorical columns
+library(dplyr)
+q5classif_new<- merge(q5num, q5categorical, by = "row.names", all.x = TRUE)
+cat("Shape of dataframe: ", dim(q5classif_new), "\n")
+```
+
+```{r}
+library(dplyr)
+#dropping columns
+q5classif_new <- select(q5classif_new, -c(Month,DayOfWeek,Row.names))
+head(q5classif_new)
+```
+
+```{r}
+q5classif_new<-read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/standadisedset.csv")
+```
+
+```{r}
+#data splitting
+library(caTools)
+library(party)
+library(dplyr)
+library(magrittr)
+library(rpart)
+
+set.seed(1234)
+sample_data=sample(c(TRUE,FALSE),nrow(q5classif_new),replace=TRUE,prob=c(0.7,0.3))
+train_data=q5classif_new[sample_data,]
+dim(train_data)
+test_data=q5classif_new[!sample_data,]
+dim(test_data)
+
+```
+
+```{r}
+#decision tree model
+modeldt<-rpart(train_data$DelayStatus~.,data=train_data,method="class")
+```
+
+```{r}
+#confusion_matrix
+predicteddt<-predict(modeldt,test_data,type="class")
+tabledt<-table(test_data$DelayStatus,predicteddt)
+tabledt
+
+```
+```{r}
+# Calculate accuracy
+accuracy <- sum(diag(tabledt)) / sum(tabledt)
+
+# Print accuracy
+accuracy
+cat("Decision tree accuracy: ", round(accuracy * 100, 2), "%\n")
+
+
+```
+
+
+```{r}
+# logistic regression model
+model_lr <- glm(train_data$DelayStatus ~ ., data = train_data, family = "binomial")
+summary(model_lr)
+```
+
+
+```{r}
+
+# Make predictions on test dataset
+test_data$predicted_status <- predict(model_lr, newdata = test_data, type = "response")
+test_data$predicted_status <- ifelse(test_data$predicted_status > 0.5, 1, 0)
+
+# Create confusion matrix
+library(caret)
+confusionMatrix(factor(test_data$predicted_status), factor(test_data$DelayStatus))
+
+```
+```{r}
+library(pROC)
+roc_obj <- roc(test_data$DelayStatus, test_data$predicted_status)
+
+# Display ROC curve with true positive and false positive rates
+ggroc(roc_obj, legacy.axes = TRUE) +
+  labs(title = "ROC Curve-Logistic Regression", x = "False Positive Rate", y = "True Positive Rate")
+
+```
+
+
+
+```{r}
+#random forest
+#library(randomForest)
+
+# Build a random forest model with 100 trees
+#model_rf <- randomForest(train_data$DelayStatus ~ ., data = train_data, ntree = 100)
+
+# Print the model summary
+#print(model_rf)
+#cannot run due to memory problems
+```
+
+
+
+
+
+```{r}
+#Linear Regression Model
+#dropping Delay Status Column 
+library(dplyr)
+q5regression <- select(q5arrdataset, -c(DelayStatus))
+dim(q5regression)
+#numerical variables except for categorical data
+q5numreg <- q5regression
+num_cols <- c("DepDelay", "Distance", "PlaneAge","ArrDelay")
+head(q5numreg)
+
+```
+
+```{r}
+#Indicator function for categorical variables using one hot encoding
+library(caret)
+cat_cols <- c("Month", "DayOfWeek")
+q5regression[, cat_cols] <- lapply(q5regression[, cat_cols], factor)
+q5categoricalreg <- q5regression[, cat_cols]
+formula <- as.formula(paste0("~", paste(cat_cols, collapse = "+")))
+one_hot_encoder <- dummyVars(formula, data = q5categoricalreg)
+q5categoricalreg <- as.data.frame(predict(one_hot_encoder, newdata = q5categoricalreg))
+colnames(q5categoricalreg) <- gsub("\\.", "+", colnames(q5categoricalreg))
+rownames(q5categoricalreg) <- rownames(q5numreg)
+head(q5categoricalreg)
+
+
+```
+
+```{r}
+#merging numerical and categorical columns
+library(dplyr)
+q5regression_new<- merge(q5numreg, q5categoricalreg, by = "row.names", all.x = TRUE)
+cat("Shape of dataframe: ", dim(q5regression_new), "\n")
+
+```
+
+```{r}
+library(dplyr)
+#dropping columns
+q5regression_new <- select(q5regression_new, -c(Month,DayOfWeek,Row.names))
+head(q5regression_new)
+```
+
+```{r}
+#dropping Arrival Delay column to predict it
+q5regressiontest <- select(q5regression_new, -c(ArrDelay))
+dim(q5regressiontest)
+head(q5regressiontest)
+```
+
+```{r}
+library(caTools)
+
+# Split the data into training and testing sets
+set.seed(123)
+split <- sample.split(q5regression_new, SplitRatio = 0.7)
+train <- subset(q5regression_new, split == TRUE)
+test <- subset(q5regression_new, split == FALSE)
+
+# Fit linear regression model using the training data
+model <- lm(ArrDelay ~ ., data = train)
+
+# Print the summary of the model
+summary(model)
+
+# Predict the test set using the fitted model
+predictions <- predict(model, newdata = test)
+
+# Plot the actual vs predicted values
+plot(test$ArrDelay, predictions, main = "Actual vs Predicted", xlab = "Actual", ylab = "Predicted")
+
+```
+
+```{r}
+#plot residuals
+residuals <- test$ArrDelay - predictions
+bin_size <- 2
+breaks <- seq(floor(min(residuals) / bin_size) * bin_size, ceiling(max(residuals) / bin_size) * bin_size, by = bin_size)
+hist(residuals, breaks = breaks, main = "Residual Plot", xlab = "Residuals", xlim = c(-250, 250))
+
+```
+
+
+
+
+

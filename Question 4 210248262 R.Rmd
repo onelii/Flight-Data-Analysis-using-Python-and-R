@@ -1,0 +1,144 @@
+---
+title: "Question 4"
+author: "Oneli (210458262)"
+date: "2023-03-31"
+output: html_document
+---
+
+```{r}
+#Cleaning data for question 4
+#uploading merged data set
+mergeddataset <- read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/2006and2007mergeddatasetr.csv")
+```
+
+```{r}
+#extracting the desired columns for question 4
+q4data <- mergeddataset[, c("Year", "Month", "DayofMonth","DepTime", "TailNum", "ArrDelay","DepDelay","Origin", "Dest")]
+head(q4data)
+#checking null values
+colSums(is.na(q4data))
+#dropping null values
+q4data <- na.omit(q4data)
+#rechecking null values
+colSums(is.na(q4data))
+# adding a column with the date time format 
+library(dplyr)
+library(lubridate)
+q4data <- q4data %>%
+  mutate(Year = as.character(Year),
+         Month = as.character(Month),
+         DayofMonth = as.character(DayofMonth),
+         DepTime = as.double(DepTime) %>% as.numeric() %>% hours()) %>%
+  mutate(DateTime = ymd(paste(Year, Month, DayofMonth, sep = "-")) + DepTime)
+
+head(q4data)
+```
+```{r}
+#calculating total delay
+q4data$TotalDelay <- q4data$ArrDelay + q4data$DepDelay
+head(q4data)
+```
+
+```{r}
+#extracting the desired columns
+q4dataset <- q4data[, c("TailNum","DateTime","Origin","Dest","TotalDelay")]
+head(q4dataset)
+```
+
+
+```{r}
+# making plane tail number equals to 0 null value
+q4dataset$TailNum[q4dataset$TailNum == 0] <- NA
+#checking null values
+colSums(is.na(q4dataset))
+#dropping null values
+q4dataset <- na.omit(q4dataset)
+#rechecking null values
+colSums(is.na(q4dataset))
+```
+
+```{r}
+#grouping according to plane tail number and sorting according to date and time
+library(dplyr)
+q4dataset <- q4dataset %>%
+  ungroup() %>%                  
+  arrange(TailNum, DateTime) %>% 
+  group_by(TailNum)           
+head(q4dataset)
+
+```
+
+```{r}
+#creating new data set on cascading failures
+library(dplyr)
+cascadingfailure <- q4dataset %>%
+  mutate(PreviousTotDelay = lag(TotalDelay), # Create new columns
+         PreviousOrigin = lag(Origin),
+         PreviousDest = lag(Dest),
+         PreviousDateTime = lag(DateTime),
+         CurrentTotDelay = TotalDelay,
+         CurrentOrigin = Origin,
+         CurrentDest = Dest,
+         CurrentDateTime = DateTime) %>%
+  filter(PreviousDest == CurrentOrigin) %>% 
+  select(TailNum,PreviousTotDelay, PreviousOrigin, PreviousDest,CurrentTotDelay,CurrentOrigin,CurrentDest,PreviousDateTime,CurrentDateTime)
+
+head(cascadingfailure)
+```
+
+
+```{r}
+#creating a scatter plot to see the relationship between PreviousTotDelay and CurrentTotDelay
+library(ggplot2)
+ggplot(cascadingfailure, aes(x = CurrentTotDelay, y = PreviousTotDelay)) +
+  geom_point() +
+  xlab('Current Total Delay') +
+  ylab('Previous Total Delay') +
+  ggtitle('Scatter Plot of Current Total Delay vs Previous Total Delay')
+
+```
+
+```{r}
+#Hypothesis Testing
+# Encoding the PreviousTotDelay and CurrentTotDelay columns
+cascadingfailure$HasPreviousDelay <- ifelse(cascadingfailure$PreviousTotDelay > 0, 1, 0)
+cascadingfailure$HasCurrentDelay <- ifelse(cascadingfailure$CurrentTotDelay > 0, 1, 0)
+
+# Contingency table
+crosstab <- table(cascadingfailure$HasPreviousDelay, cascadingfailure$HasCurrentDelay)
+dimnames(crosstab) <- list("Has Previous Delay" = c("0", "1"), "Has Current Delay" = c("0", "1"))
+crosstab
+
+
+#performing a chi squared test to check the significance of the relationship between previous delay and current delay
+cat("\nDefining the hypothesis\n")
+cat("H0: There is no association between previous delays and current delays\n")
+cat("H1: There is an association between previous delays and current delays\n")
+
+chisq <- chisq.test(crosstab)
+cat("Degree of freedom: ", chisq$parameter, "\n")
+cat("p-value: ", chisq$p.value, "\n")
+print(chisq$expected)
+
+#interpreting the results
+#testing at a 5% significance level
+prob <- 0.05
+if (chisq$p.value < prob) {
+  cat("Reject H0 at 5% - There is a significant relationship\n")
+} else {
+  cat("Fail to reject H0 at 5% - There is no significant relationship\n")
+}
+
+#testing at a 1% significance level
+prob <- 0.01
+if (chisq$p.value < prob) {
+  cat("Reject H0 at 1% - There is a significant relationship\n")
+} else {
+  cat("Fail to reject H0 at 1%- There is no significant relationship\n")
+}
+
+```
+```{r}
+#since the H0 is rejected at both 5% and 1% significance level it can be concluded that there is strong evidence against H0
+```
+

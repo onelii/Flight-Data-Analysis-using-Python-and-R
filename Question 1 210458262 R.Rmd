@@ -1,0 +1,222 @@
+---
+title: "Question 1"
+author: "Oneli (210458262)"
+date: "2023-03-28"
+output: html_document
+---
+
+```{r}
+#Question 01
+mergeddataset <- read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/2006and2007mergeddatasetr.csv")
+
+```
+
+```{r}
+#Cleaning Data for Question 1
+#Arrival Delay
+# Extracting the desired columns for question 1 for arrival delay
+q1arrdataset <- mergeddataset[, c("Month", "DayOfWeek", "CRSDepTime","ArrDelay")]
+head(q1arrdataset)
+
+#changing CRSDepTime data type to integer
+q1arrdataset$CRSDepTime <- as.integer(q1arrdataset$CRSDepTime)
+
+#checking null values
+colSums(is.na(q1arrdataset))
+
+#dropping null values
+q1arrdataset <- na.omit(q1arrdataset)
+
+#rechecking null values
+colSums(is.na(q1arrdataset))
+
+#removing early arrivals 
+q1arrdataset <- q1arrdataset[q1arrdataset$ArrDelay >= 0,]
+
+```
+```{r}
+#Departure Delay
+
+#extracting the desired columns for question 1 for departure delay
+q1depdataset <- mergeddataset[, c("Month", "DayOfWeek", "CRSDepTime","DepDelay")]
+head(q1depdataset)
+
+#changing CRSDepTime data type to integer
+q1depdataset$CRSDepTime <- as.integer(q1depdataset$CRSDepTime)
+
+#checking null values
+colSums(is.na(q1depdataset))
+
+#dropping null values
+q1depdataset <- na.omit(q1depdataset)
+
+#rechecking null values
+colSums(is.na(q1depdataset))
+
+#removing early arrivals 
+q1depdataset <- q1depdataset[q1depdataset$DepDelay >= 0,]
+
+```
+
+```{r}
+#Checking the distribution of the two variables using box plot of arrival delay and departure delay
+arrival_delay <- q1arrdataset$ArrDelay
+departure_delay <- q1depdataset$DepDelay
+boxplot(list(arrival_delay, departure_delay),
+        vertical = TRUE,
+        names = c("Arrival Delay", "Departure Delay"), 
+        ylab = "Delay Time (minutes)", 
+        ylim = c(0, 80), 
+        show.names = FALSE, 
+        outline = FALSE, 
+        col = c("White", "White") 
+        )  
+axis(side = 1, at = c(1, 2), labels = c("Arrival Delay", "Departure Delay"), pos = 0, tick = FALSE)
+
+
+```
+
+```{r}
+#Analysis for the Best time of the day to travel
+library(ggplot2) 
+library(dplyr) 
+
+#Binning Hours from schedule departure time
+q1arrdataset$hour <- q1arrdataset$CRSDepTime %/% 100
+q1depdataset$hour <- q1depdataset$CRSDepTime %/% 100
+
+# Calculate the median arrival delay for each hour
+arr_median_delaybyhr <- q1arrdataset %>% 
+  group_by(hour) %>% 
+  summarize(median_arr_delaybyhr = median(ArrDelay, na.rm = TRUE))
+
+# Calculate the median departure delay for each hour
+dep_median_delaybyhr <- q1depdataset %>% 
+  group_by(hour) %>% 
+  summarize(median_dep_delaybyhr = median(DepDelay, na.rm = TRUE))
+
+median_delaybyhr <- merge(arr_median_delaybyhr, dep_median_delaybyhr, by = "hour", all = TRUE)
+
+# Add total median delay for each hour
+median_delaybyhr <- median_delaybyhr %>% 
+  mutate(total_median_delaybyhr = median_arr_delaybyhr + median_dep_delaybyhr)
+
+ggplot(median_delaybyhr, aes(hour)) +
+  geom_line(aes(y = median_arr_delaybyhr, color = "Median Arrival Delay")) +
+  geom_line(aes(y = median_dep_delaybyhr, color = "Median Departure Delay")) +
+  geom_line(aes(y = total_median_delaybyhr, color = "Total Median Delay"), linetype = "dashed") +
+  scale_color_manual("", values = c("Median Arrival Delay" = "blue", "Median Departure Delay" = "red", "Total Median Delay" = "black")) +
+  xlab("Time") +
+  ylab("Median Delay (in minutes)") +
+  ggtitle("Median Arrival and Departure Delays by Time") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 8)) +
+  scale_x_continuous(limits = c(-1, 24),
+                     breaks = seq(0, 23, by = 1),
+                     labels = c("0-1", "1-2", "2-3", "3-4", "4-5", "5-6", "6-7", "7-8", "8-9", "9-10", 
+                                "10-11", "11-12", "12-13", "13-14", "14-15", "15-16", "16-17", "17-18", "18-19", 
+                                "19-20", "20-21", "21-22", "22-23","23-0"),
+                     expand = c(0, 0)) +
+  geom_point(aes(y = median_arr_delaybyhr, color = "Median Arrival Delay"), shape = "o") +
+  geom_point(aes(y = median_dep_delaybyhr, color = "Median Departure Delay"), shape = "o") +
+  geom_point(aes(y = total_median_delaybyhr, color = "Total Median Delay"), shape = "o") +
+  geom_text(aes(y = median_arr_delaybyhr, label = round(median_arr_delaybyhr, 1)), size = 2, nudge_y = 2, check_overlap = TRUE) +
+  geom_text(aes(y = median_dep_delaybyhr, label = round(median_dep_delaybyhr, 1)), size = 2, nudge_y = 2, check_overlap = TRUE) +
+  geom_text(aes(y = total_median_delaybyhr, label = round(total_median_delaybyhr, 1)), size = 2, nudge_y = 2 ,check_overlap=TRUE)
+
+```
+
+```{r}
+#Analysis for the Best day of the week to travel
+library(ggplot2) 
+library(dplyr) 
+
+# Calculate the median arrival delay for each day of week
+arr_median_delaybyweek <- q1arrdataset %>% 
+  group_by(DayOfWeek) %>% 
+  summarize(median_arr_delaybyweek = median(ArrDelay, na.rm = TRUE))
+
+# Calculate the median departure delay for each day of week
+dep_median_delaybyweek <- q1depdataset %>% 
+  group_by(DayOfWeek) %>% 
+  summarize(median_dep_delaybyweek = median(DepDelay, na.rm = TRUE))
+
+# Merge the median arrival and departure delay data
+median_delaybyweek <- merge(arr_median_delaybyweek, dep_median_delaybyweek, by = "DayOfWeek", all = TRUE)
+
+# Add total median delay for each day of week
+median_delaybyweek <- median_delaybyweek %>% 
+  mutate(total_median_delaybyweek = median_arr_delaybyweek + median_dep_delaybyweek)
+
+ggplot(median_delaybyweek, aes(DayOfWeek)) +
+  geom_line(aes(y = median_arr_delaybyweek, color = "Median Arrival Delay")) +
+  geom_line(aes(y = median_dep_delaybyweek, color = "Median Departure Delay")) +
+  geom_line(aes(y = total_median_delaybyweek, color = "Total Median Delay"), linetype = "dashed") +
+  scale_color_manual("", values = c("Median Arrival Delay" = "blue", "Median Departure Delay" = "red", "Total Median Delay" = "black")) +
+  xlab("Day of Week") +
+  ylab("Median Delay (in minutes)") +
+  ggtitle("Median Arrival and Departure Delays by Week") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 8)) +
+  scale_x_continuous(limits = c(0.5, 7.5),  # Adjust the limits to add space on both sides
+                     breaks = seq(1, 7, by = 1),
+                     labels = c("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"),
+                     expand = c(0, 0)) +
+  geom_point(aes(y = median_arr_delaybyweek, color = "Median Arrival Delay"), shape = "o") +
+  geom_point(aes(y = median_dep_delaybyweek, color = "Median Departure Delay"), shape = "o") +
+  geom_point(aes(y = total_median_delaybyweek, color = "Total Median Delay"), shape = "o") +
+  geom_text(aes(y = median_arr_delaybyweek, label = round(median_arr_delaybyweek, 1)), size = 2, nudge_y = 1, check_overlap = TRUE) +
+  geom_text(aes(y = median_dep_delaybyweek, label = round(median_dep_delaybyweek, 1)), size = 2, nudge_y = 1, check_overlap = TRUE) +
+  geom_text(aes(y = total_median_delaybyweek, label = round(total_median_delaybyweek, 1)), size = 2, nudge_y = 1 ,check_overlap=TRUE)
+
+```
+
+
+```{r}
+#Analysis for the Best time of the year to travel
+library(ggplot2) 
+library(dplyr) 
+
+# Calculate the median arrival delay for each month
+arr_median_delaybymonth <- q1arrdataset %>% 
+  group_by(Month) %>% 
+  summarize(median_arr_delaybymonth = median(ArrDelay, na.rm = TRUE))
+
+# Calculate the median departure delay for each month
+dep_median_delaybymonth <- q1depdataset %>% 
+  group_by(Month) %>% 
+  summarize(median_dep_delaybymonth = median(DepDelay, na.rm = TRUE))
+
+# Merge the median arrival and departure delay data
+median_delaybymonth <- merge(arr_median_delaybymonth, dep_median_delaybymonth, by = "Month", all = TRUE)
+
+# Add total median delay for each month
+median_delaybymonth <- median_delaybymonth %>% 
+  mutate(total_median_delaybymonth = median_arr_delaybymonth + median_dep_delaybymonth)
+
+ggplot(median_delaybymonth, aes(Month)) +
+  geom_line(aes(y = median_arr_delaybymonth, color = "Median Arrival Delay")) +
+  geom_line(aes(y = median_dep_delaybymonth, color = "Median Departure Delay")) +
+  geom_line(aes(y = total_median_delaybymonth, color = "Total Median Delay"), linetype = "dashed") +
+  scale_color_manual("", values = c("Median Arrival Delay" = "blue", "Median Departure Delay" = "red", "Total Median Delay" = "black")) +
+  xlab("Month") +
+  ylab("Median Delay (in minutes)") +
+  ggtitle("Median Arrival and Departure Delays by Month") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 8)) +
+  scale_x_continuous(limits = c(0.5, 12.5),  # Adjust the limits to add space on both sides
+                   breaks = seq(1, 12, by = 1),
+                   labels = c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL","AUG","SEP","OCT","NOV","DEC"),
+                   expand = c(0, 0))+
+  geom_point(aes(y = median_arr_delaybymonth, color = "Median Arrival Delay"), shape = "o") +
+  geom_point(aes(y = median_dep_delaybymonth, color = "Median Departure Delay"), shape = "o") +
+  geom_point(aes(y = total_median_delaybymonth, color = "Total Median Delay"), shape = "o") +
+  geom_text(aes(y = median_arr_delaybymonth, label = round(median_arr_delaybymonth, 1)), size = 2, nudge_y = 1, check_overlap = TRUE) +
+  geom_text(aes(y = median_dep_delaybymonth, label = round(median_dep_delaybymonth, 1)), size = 2, nudge_y = 1, check_overlap = TRUE) +
+  geom_text(aes(y = total_median_delaybymonth, label = round(total_median_delaybymonth, 1)), size = 2, nudge_y = 1 ,check_overlap=TRUE)
+
+```
+

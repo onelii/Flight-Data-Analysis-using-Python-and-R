@@ -1,0 +1,165 @@
+---
+title: "Question 03"
+author: "Oneli (210458262)"
+date: "2023-03-29"
+output: html_document
+---
+```{r}
+mergeddataset <- read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/2006and2007mergeddatasetr.csv")
+datasetairports <- read.csv("C:/Users/DELL/Desktop/Coursework/coursework data set/airports.csv")
+```
+
+```{r}
+#left merging airports data set to merged data set of 2006 and 2007 years
+#renaming the column "iata" to "Destination" to make a left merge
+library(dplyr)
+datasetairports <- datasetairports %>%
+ rename(Dest = iata)
+colnames(datasetairports)
+mergedwithdestairports<- left_join(mergeddataset, datasetairports, by = "Dest")
+head(mergedwithdestairports)
+```
+
+```{r}
+#Cleaning data for question 3
+#extracting the desired columns for question 3 Destination dataset
+q3destdataset <- mergedwithdestairports[, c("Dest", "Month", "Year","airport","state","lat","long")]
+head(q3destdataset)
+
+```
+
+```{r}
+#checking for null values
+colSums(is.na(q3destdataset))
+#dropping for null values
+q3destdataset <- na.omit(q3destdataset)
+#rechecking for null values
+colSums(is.na(q3destdataset))
+```
+
+```{r}
+#Line graph to show flight frequency by month
+#creating an array with month,year and destination
+q3dataset <- mergedwithdestairports[, c("Dest", "Month", "Year")]
+head(q3dataset)
+#checking for null values
+colSums(is.na(q3dataset))
+
+
+```
+
+```{r}
+library(ggplot2)
+
+data2006 <- q3dataset[q3dataset$Year == 2006,]
+data2007 <- q3dataset[q3dataset$Year == 2007,]
+freq2006 <- aggregate(Dest ~ Month, data2006, length)
+freq2007 <- aggregate(Dest ~ Month, data2007, length)
+
+ggplot() +
+  geom_line(data = freq2006, aes(x = Month, y = Dest, color = "2006"), size = 1.5) +
+  geom_line(data = freq2007, aes(x = Month, y = Dest, color = "2007"), size = 1.5) +
+  scale_color_manual(name = "Year", values = c("2006" = "blue", "2007" = "red")) +
+  labs(x = "Month", y = "Flight Frequency", title = "Flight Frequency by Month") +
+  scale_x_continuous(breaks = 1:12, labels = c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")) +
+  theme_bw()
+```
+
+
+
+```{r}
+#Heat Map on how airports were used during the months on a map
+library(ggplot2)
+library(ggmap)
+library(dplyr)
+library(tidyr)
+library(plotly)
+
+q3destdataset$Date <- as.Date(paste(q3destdataset$Year, q3destdataset$Month, "1", sep = "-"), format = "%Y-%m")
+q3destdataset_grouped <- q3destdataset %>% group_by(Year, Month, Dest, lat, long) %>% summarize(Frequency = n())
+
+bbox <- c(left = -125, bottom = 25, right = -66, top = 50)
+map <- get_stamenmap(bbox, zoom = 4, maptype = "toner-lite")
+
+years <- c(2006, 2007)
+months <- 1:12
+
+for (y in years) {
+  for (m in months) {
+    map_title <- paste("Spatial Temporal Heat Map - ", y, "-", m)
+  
+    q3destdataset_ym <- q3destdataset_grouped %>% filter(Year == y, Month == m)
+    
+    map_plot <- ggmap(map) +
+      geom_point(data = q3destdataset_ym, aes(x = long, y = lat, size = Frequency, color = Frequency)) +
+      scale_color_gradient(low = "white", high = "red") +
+      labs(title = map_title,
+           x = "Longitude",
+           y = "Latitude",
+           size = "Frequency",
+           color = "Frequency") +
+      theme(legend.position = "bottom")
+  
+    map_widget <- ggplotly(map_plot)
+    
+    html_filename <- paste0("spatial_temporal_heat_map_", y, "-", m, ".html")
+    htmlwidgets::saveWidget(map_widget, file = html_filename)
+  }
+}
+
+```
+
+```{r}
+#Line graph to show top 3 states frequencies by month 
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Combine year and month columns into a new column called "YearMonth"
+q3destdataset$YearMonth <- as.Date(paste(q3destdataset$Year, q3destdataset$Month, "1", sep = "-"), format = "%Y-%m-%d")
+
+# Find the frequency destination for each state and sort to get the top 3 states
+top_states <- q3destdataset %>%
+  group_by(state) %>%
+  summarize(Frequency = n()) %>%
+  ungroup() %>%
+  arrange(desc(Frequency)) %>%
+  top_n(3, Frequency) %>%
+  arrange(state)
+
+# Group the data by month and year and filter to only include the top 3 states
+top_states_monthly <- q3destdataset %>%
+  group_by(state, YearMonth) %>%
+  summarize(Frequency = n()) %>%
+  ungroup() %>%
+  arrange(state, YearMonth) %>%
+  filter(state %in% top_states$state)
+
+
+# Create a line graph to show the top 3 states' frequencies by month
+ggplot(top_states_monthly, aes(x = YearMonth, y = Frequency, color = state)) +
+  geom_line() +
+  labs(title = "Top 3 States' Frequencies by Month",
+       x = "Month",
+       y = "Frequency",
+       color = "State") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m") +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
